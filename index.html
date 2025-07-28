@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>マンション保険料シミュレーター（戸数別対応版）</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-5xl mx-auto">
+            <h1 class="text-3xl font-bold text-center text-gray-800 mb-8">
+                <i class="fas fa-building text-blue-600"></i>
+                マンション保険料シミュレーター
+            </h1>
+            
+            <!-- 入力フォーム -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">
+                    <i class="fas fa-edit text-green-600"></i>
+                    入力項目
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- マンション戸数 -->
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-home"></i>
+                            マンション戸数
+                        </label>
+                        <div class="flex gap-2">
+                            <input 
+                                type="number" 
+                                id="units" 
+                                class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="戸数を入力"
+                                min="1"
+                                step="1"
+                                oninput="updateUnitsInfo()"
+                            >
+                            <button 
+                                id="lockUnitsBtn" 
+                                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                                onclick="toggleUnitsLock()"
+                            >
+                                <i class="fas fa-lock"></i>
+                                固定
+                            </button>
+                        </div>
+                        <p id="unitsStatus" class="text-sm text-gray-500"></p>
+                    </div>
+                    
+                    <!-- 事故件数 -->
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            事故件数
+                        </label>
+                        <input 
+                            type="number" 
+                            id="accidents" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="事故件数を入力"
+                            min="0"
+                            step="1"
+                            oninput="calculate()"
+                        >
+                    </div>
+                    
+                    <!-- 保険料 -->
+                    <div class="space-y-2 md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-yen-sign"></i>
+                            保険料（地震保険料を除く）
+                        </label>
+                        <input 
+                            type="number" 
+                            id="premium" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="保険料を入力（円）"
+                            min="0"
+                            step="1"
+                            oninput="calculate()"
+                        >
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 適用条件表示 -->
+            <div id="conditionDisplay" class="bg-white rounded-lg shadow-md p-6 mb-6 hidden">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">
+                    <i class="fas fa-info-circle text-blue-600"></i>
+                    適用される条件
+                </h2>
+                <div id="conditionContent" class="p-4 rounded-lg"></div>
+            </div>
+            
+            <!-- 20戸未満の割引率表 -->
+            <div id="smallMansionTable" class="bg-white rounded-lg shadow-md p-6 mb-6 hidden">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">
+                    <i class="fas fa-table text-purple-600"></i>
+                    保険料割引率表（20戸未満）
+                </h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full border-collapse border border-gray-300">
+                        <thead>
+                            <tr class="bg-gray-100">
+                                <th class="border border-gray-300 px-4 py-2 text-left">事故件数</th>
+                                <th class="border border-gray-300 px-4 py-2 text-center">割引率</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="border border-gray-300 px-4 py-2">0件</td>
+                                <td class="border border-gray-300 px-4 py-2 text-center font-semibold text-green-600">35%</td>
+                            </tr>
+                            <tr>
+                                <td class="border border-gray-300 px-4 py-2">1件以上</td>
+                                <td class="border border-gray-300 px-4 py-2 text-center font-semibold text-red-600">0%（割引なし）</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- 20戸以上の割引率表 -->
+            <div id="largeMansionTable" class="bg-white rounded-lg shadow-md p-6 mb-6 hidden">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">
+                    <i class="fas fa-table text-purple-600"></i>
+                    保険料割引率表（20戸以上）
+                </h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full border-collapse border border-gray-300">
+                        <thead>
+                            <tr class="bg-gray-100">
+                                <th class="border border-gray-300 px-4 py-2 text-left">1戸室あたり事故件数</th>
+                                <th class="border border-gray-300 px-4 py-2 text-center">区分</th>
+                                <th class="border border-gray-300 px-4 py-2 text-center">割引率</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="border border-gray-300 px-4 py-2">0から0.01以下</td>
+                                <td class="border border-gray-300 px-4 py-2 text-center font-semibold text-green-600">S</td>
+                                <td class="border border-gray-300 px-4 py-2 text-center">69%</td>
+                            </tr>
+                            <tr>
+                                <td class="border border-gray-300 px-4 py-2">0.01超から0.03以下</td>
+                                <td class="border border-gray-300 px-4 py-2 text-center font-semibold text-blue-600">A</td>
+                                <td class="border border-gray-300 px-4 py-2 text-center">62%</td>
+                            </tr>
+                            <tr>
+                                <td class="border border-gray-300 px-4 py-2">0.03超から0.05以下</td>
+                                <td class="border border-gray-300 px-4 py-2 text-center font-semibold text-yellow-600">B</td>
+                                <td class="border border-gray-300 px-4 py-2 text-center">53%</td>
+                            </tr>
+                            <tr>
+                                <td class="border border-gray-300 px-4 py-2">0.05超から0.07以下</td>
+                                <td class="border border-gray-300 px-4 py-2 text-center font-semibold text-orange-600">C</td>
+                                <td class="border border-gray-300 px-4 py-2 text-center">36%</td>
+                            </tr>
+                            <tr>
+                                <td class="border border-gray-300 px-4 py-2">0.07超から0.14以下</td>
+                                <td class="border border-gray-300 px-4 py-2 text-center font-semibold text-red-600">D</td>
+                                <td class="border border-gray-300 px-4 py-2 text-center">22%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- 計算結果 -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">
+                    <i class="fas fa-calculator text-orange-600"></i>
+                    シミュレーション結果
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <div id="accidentsPerUnitDiv" class="bg-blue-50 p-4 rounded-lg hidden">
+                            <h3 class="font-semibold text-blue-800">1戸室あたりの事故件数</h3>
+                            <p class="text-2xl font-bold text-blue-600" id="accidentsPerUnit">-</p>
+                        </div>
+                        
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <h3 class="font-semibold text-green-800">適用される区分</h3>
+                            <p class="text-2xl font-bold text-green-600" id="grade">-</p>
+                        </div>
+                        
+                        <div class="bg-purple-50 p-4 rounded-lg">
+                            <h3 class="font-semibold text-purple-800">適用される割引率</h3>
+                            <p class="text-2xl font-bold text-purple-600" id="discountRate">-</p>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h3 class="font-semibold text-gray-800">元の保険料</h3>
+                            <p class="text-2xl font-bold text-gray-600" id="originalPremium">-</p>
+                        </div>
+                        
+                        <div class="bg-red-50 p-4 rounded-lg">
+                            <h3 class="font-semibold text-red-800">割引後の保険料</h3>
+                            <p class="text-3xl font-bold text-red-600" id="discountedPremium">-</p>
+                        </div>
+                        
+                        <div class="bg-yellow-50 p-4 rounded-lg">
+                            <h3 class="font-semibold text-yellow-800">割引金額</h3>
+                            <p class="text-2xl font-bold text-yellow-600" id="discountAmount">-</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let unitsLocked = false;
+        let currentUnits = 0;
+        
+        function updateUnitsInfo() {
+            const units = parseInt(document.getElementById('units').value);
+            const conditionDisplay = document.getElementById('conditionDisplay');
+            const conditionContent = document.getElementById('conditionContent');
+            const smallMansionTable = document.getElementById('smallMansionTable');
+            const largeMansionTable = document.getElementById('largeMansionTable');
+            
+            if (units && units > 0) {
+                conditionDisplay.classList.remove('hidden');
+                
+                if (units < 20) {
+                    conditionContent.innerHTML = `
+                        <div class="bg-orange-100 border-l-4 border-orange-500 text-orange-700">
+                            <div class="flex">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                </div>
+                                <div class="ml-3">
+                                    <p class="text-sm font-medium">20戸未満の条件が適用されます</p>
+                                    <p class="text-sm">事故件数が0件の場合35%割引、1件以上の場合は割引なし</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    smallMansionTable.classList.remove('hidden');
+                    largeMansionTable.classList.add('hidden');
+                } else {
+                    conditionContent.innerHTML = `
+                        <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-700">
+                            <div class="flex">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-info-circle"></i>
+                                </div>
+                                <div class="ml-3">
+                                    <p class="text-sm font-medium">20戸以上の条件が適用されます</p>
+                                    <p class="text-sm">1戸室あたりの事故件数に基づく段階的な割引率</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    smallMansionTable.classList.add('hidden');
+                    largeMansionTable.classList.remove('hidden');
+                }
+            } else {
+                conditionDisplay.classList.add('hidden');
+                smallMansionTable.classList.add('hidden');
+                largeMansionTable.classList.add('hidden');
+            }
+            
+            // 固定されている場合は計算を実行
+            if (unitsLocked) {
+                calculate();
+            }
+        }
+        
+        function toggleUnitsLock() {
+            const unitsInput = document.getElementById('units');
+            const lockBtn = document.getElementById('lockUnitsBtn');
+            const statusText = document.getElementById('unitsStatus');
+            
+            if (!unitsLocked) {
+                // 戸数が入力されていない場合は固定できない
+                if (!unitsInput.value || unitsInput.value <= 0) {
+                    alert('戸数を入力してから固定してください。');
+                    return;
+                }
+                
+                // 固定する
+                unitsLocked = true;
+                currentUnits = parseInt(unitsInput.value);
+                unitsInput.disabled = true;
+                unitsInput.classList.add('bg-gray-100');
+                lockBtn.innerHTML = '<i class="fas fa-unlock"></i> 解除';
+                lockBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                lockBtn.classList.add('bg-red-600', 'hover:bg-red-700');
+                statusText.textContent = '戸数が固定されました。解除ボタンで再入力が可能です。';
+                statusText.classList.remove('text-gray-500');
+                statusText.classList.add('text-green-600');
+                
+                // 計算を実行
+                calculate();
+            } else {
+                // 固定を解除する
+                unitsLocked = false;
+                currentUnits = 0;
+                unitsInput.disabled = false;
+                unitsInput.classList.remove('bg-gray-100');
+                lockBtn.innerHTML = '<i class="fas fa-lock"></i> 固定';
+                lockBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
+                lockBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                statusText.textContent = '戸数の固定が解除されました。';
+                statusText.classList.remove('text-green-600');
+                statusText.classList.add('text-gray-500');
+                
+                // 結果をクリア
+                clearResults();
+            }
+        }
+        
+        function calculate() {
+            const units = parseInt(document.getElementById('units').value);
+            const accidents = parseInt(document.getElementById('accidents').value);
+            const premium = parseFloat(document.getElementById('premium').value);
+            
+            // 戸数が固定されていない場合は計算しない
+            if (!unitsLocked) {
+                clearResults();
+                return;
+            }
+            
+            // 入力値が不正な場合は計算しない
+            if (isNaN(units) || isNaN(accidents) || isNaN(premium) || units <= 0 || accidents < 0 || premium < 0) {
+                clearResults();
+                return;
+            }
+            
+            let grade, discountRate, discountedPremium, discountAmount;
+            const accidentsPerUnitDiv = document.getElementById('accidentsPerUnitDiv');
+            
+            if (units < 20) {
+                // 20戸未満の場合
+                accidentsPerUnitDiv.classList.add('hidden');
+                
+                if (accidents === 0) {
+                    grade = '35%割引';
+                    discountRate = 0.35;
+                } else {
+                    grade = '割引なし';
+                    discountRate = 0;
+                }
+                
+                discountedPremium = premium * (1 - discountRate);
+                discountAmount = premium - discountedPremium;
+                
+                document.getElementById('discountRate').textContent = (discountRate * 100).toFixed(0) + '%';
+                
+            } else {
+                // 20戸以上の場合
+                accidentsPerUnitDiv.classList.remove('hidden');
+                
+                const accidentsPerUnit = accidents / units;
+                document.getElementById('accidentsPerUnit').textContent = accidentsPerUnit.toFixed(4);
+                
+                if (accidentsPerUnit <= 0.01) {
+                    grade = 'S';
+                    discountRate = 0.69;
+                } else if (accidentsPerUnit <= 0.03) {
+                    grade = 'A';
+                    discountRate = 0.62;
+                } else if (accidentsPerUnit <= 0.05) {
+                    grade = 'B';
+                    discountRate = 0.53;
+                } else if (accidentsPerUnit <= 0.07) {
+                    grade = 'C';
+                    discountRate = 0.36;
+                } else if (accidentsPerUnit <= 0.14) {
+                    grade = 'D';
+                    discountRate = 0.22;
+                } else {
+                    grade = '適用外';
+                    discountRate = 0;
+                }
+                
+                discountedPremium = premium * (1 - discountRate);
+                discountAmount = premium - discountedPremium;
+                
+                document.getElementById('discountRate').textContent = grade === '適用外' ? '0%' : (discountRate * 100).toFixed(0) + '%';
+            }
+            
+            // 結果を表示
+            document.getElementById('grade').textContent = grade;
+            document.getElementById('originalPremium').textContent = premium.toLocaleString() + '円';
+            document.getElementById('discountedPremium').textContent = Math.round(discountedPremium).toLocaleString() + '円';
+            document.getElementById('discountAmount').textContent = Math.round(discountAmount).toLocaleString() + '円';
+        }
+        
+        function clearResults() {
+            document.getElementById('accidentsPerUnit').textContent = '-';
+            document.getElementById('grade').textContent = '-';
+            document.getElementById('discountRate').textContent = '-';
+            document.getElementById('originalPremium').textContent = '-';
+            document.getElementById('discountedPremium').textContent = '-';
+            document.getElementById('discountAmount').textContent = '-';
+        }
+    </script>
+</body>
+</html>
